@@ -1,0 +1,108 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# ------------------------------------------------------------------
+# Filename: sncast.py
+#  Purpose: Seismic Network Capability Assessment Software Tool (SNCAST)
+#   Author: Martin Moellhoff, DIAS
+#
+#    Copyright (C) 2018 Martin Moellhoff
+#
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+#    Email:	 martin@dias.ie
+#    snail mail: Martin Möllhoff, DIAS, 5 Merrion Square, Dublin 2, Ireland
+#    web:	 www.dias.ie www.insn.ie
+# --------------------------------------------------------------------
+
+import numpy as np
+import sys
+from obspy.signal.util import util_geo_km
+from math import pow, log10, sqrt
+
+def minML(filename, dir_in='./', lon0=-12, lon1=-4, lat0=50.5, lat1=56.6, dlon=0.33,
+          dlat=0.2,stat_num=4, snr=3, foc_depth=0, region='UK', mag_min=-3.0, mag_delta=0.1):
+    """
+    This routine calculates the geographic distribution of the minimum 
+    detectable local magnitude ML for a given seismic network. Required 
+    input is a file with .dat extension containg four comma separated
+    columns containing for each seimic station:
+
+         longitude, latitude, noise [nm], station name
+    e.g.: -7.5100, 55.0700, 0.53, IDGL
+
+    The output file *.grd lists in ASCII xyz format: longitud, latitude, ML
+  
+    Optional parameters are:
+
+    :param  dir_in:	full path to input and output file
+    :param  lon0:	minimum longitude of search grid
+    :param  lon1:	maximum longitude of search grid
+    :param  lat0:	minimum latitude of search grid
+    :param  lat1:	maximum latitude of search grid
+    :param  dlon:	longitude increment of search grid
+    :param  dlat:	latitude increment of search grid
+    :param  stat_num:	required number of station detections
+    :param  snr:	required signal-to-noise ratio for detection
+    :param  foc_depth:  assumed focal event depth
+    :param  region:	locality for assumed ML scale parameters ('UK' or 'CAL')
+    :param  mag_min:	minimum ML value for grid search
+    :param  mag_delta:  ML increment used in grid search
+    """
+    # region specific ML = log(ampl) + a*log(hypo-dist) + b*hypo_dist + c
+    if region == 'UK': # UK scale, Ottemöller and Sargeant (2013), BSSA, doi:10.1785/0120130085
+        a = 0.95
+        b = 0.00183
+        c = -1.76
+    elif region == 'CAL': # South. California scale, IASPEI (2005), 
+                          # www.iaspei.org/commissions/CSOI/summary_of_WG_recommendations_2005.pdf
+        a = 1.11
+        b = 0.00189
+        c = -2.09
+
+    # read in data, file format: "LON, LAT, NOISE [nm], STATION"
+    array_in = np.genfromtxt('%s/%s.dat' %(dir_in, filename), dtype=None, delimiter=",")
+    lon = ([t[0] for t in array_in])
+    lat = [t[1] for t in array_in]
+    noise = [t[2] for t in array_in]
+    stat = [t[3] for t in array_in]
+    # grid size
+    nx = int( (lon1 - lon0) / dlon) + 1
+    ny = int( (lat1 - lat0) / dlat) + 1
+    # open output file:
+    f = open('%s/%s-stat%s-foc%s-snr%s-%s.grd' %(dir_in, filename, stat_num, foc_depth, snr, region), 'wb')
+    mag=[]
+
+    for ix in range(nx): # loop through longitude increments
+        ilon = lon0 + ix*dlon
+        for iy in range(ny): # loop through latitude increments
+            ilat = lat0 + iy*dlat
+            j = 0
+            for jstat in stat: # loop through stations 
+                # calculate hypcocentral distance in km
+                dx, dy = util_geo_km(ilon, ilat, lon[j], lat[j])
+                hypo_dist = sqrt(dx**2 + dy**2 + foc_depth**2)
+                # find smallest detectable magnitude
+                ampl = 0.0
+                m = mag_min - mag_delta
+                while ampl < snr*noise[j]: 
+                    m = m + mag_delta
+                    ampl = pow(10,(m - a*log10(hypo_dist) - b*hypo_dist - c))
+                mag.append(m)
+                j = j + 1   
+            # sort magnitudes in ascending order
+            mag = sorted(mag)
+            # write out lonngitude, latitude and smallest detectable magnitude
+            f.write("".join(str(ilon)+" "+str(ilat)+" "+str(mag[stat_num-1])+"\n"))
+            del mag[:]
+    f.close()
