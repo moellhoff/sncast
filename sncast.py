@@ -4,8 +4,8 @@
 # Filename: sncast.py
 #  Purpose: Seismic Network Capability Assessment Software Tool (SNCAST)
 #   Author: Martin Möllhoff, DIAS
-# Citation: Möllhoff, M., C.J. Bean and B. Baptie (2019), SN-CAST: Seismic Network Capability Assessment Software Tool
-#           for Regional Networks – Examples from Ireland, Journal of Seismology, doi: 10.1007/s10950-019-09819-0.
+# Citation: Möllhoff, M., Bean, C.J. & Baptie, B.J. SN-CAST: seismic network capability assessment software tool 
+#           for regional networks - examples from Ireland. J Seismol 23, 493-504 (2019). https://doi.org/10.1007/s10950-019-09819-0
 #
 #    Copyright (C) 2019 Martin Möllhoff
 #
@@ -33,12 +33,12 @@ from obspy.signal.util import util_geo_km
 from math import pow, log10, sqrt
 
 def minML(filename, dir_in='./', lon0=-12, lon1=-4, lat0=50.5, lat1=56.6, dlon=0.33,
-          dlat=0.2,stat_num=4, snr=3, foc_depth=0, region='UK', mag_min=-3.0, mag_delta=0.1):
+          dlat=0.2,stat_num=4, snr=3, foc_depth=0, region='CAL', mag_min=-3.0, mag_delta=0.1):
     """
     This routine calculates the geographic distribution of the minimum 
     detectable local magnitude ML for a given seismic network. Required 
-    input is a file with .dat extension containg four comma separated
-    columns containing for each seimic station:
+#### 9.10.2020    input is a file containg four comma separated
+    columns containing for each seismic station:
 
          longitude, latitude, noise [nm], station name
     e.g.: -7.5100, 55.0700, 0.53, IDGL
@@ -73,7 +73,9 @@ def minML(filename, dir_in='./', lon0=-12, lon1=-4, lat0=50.5, lat1=56.6, dlon=0
         c = -2.09
 
     # read in data, file format: "LON, LAT, NOISE [nm], STATION"
-    array_in = np.genfromtxt('%s/%s.dat' %(dir_in, filename), dtype=None, delimiter=",")
+#### 9.10.2020    array_in = np.genfromtxt('%s/%s.dat' %(dir_in, filename), dtype=None, delimiter=",")
+#### 9.10.2020    array_in = np.genfromtxt('%s/%s.dat' %(dir_in, filename), encoding='ASCII', dtype=None, delimiter=",")
+    array_in = np.genfromtxt('%s/%s' %(dir_in, filename), encoding='ASCII', dtype=None, delimiter=",")
     lon = ([t[0] for t in array_in])
     lat = [t[1] for t in array_in]
     noise = [t[2] for t in array_in]
@@ -82,7 +84,8 @@ def minML(filename, dir_in='./', lon0=-12, lon1=-4, lat0=50.5, lat1=56.6, dlon=0
     nx = int( (lon1 - lon0) / dlon) + 1
     ny = int( (lat1 - lat0) / dlat) + 1
     # open output file:
-    f = open('%s/%s-stat%s-foc%s-snr%s-%s.grd' %(dir_in, filename, stat_num, foc_depth, snr, region), 'wb')
+### 9.10.2020    f = open('%s/%s-stat%s-foc%s-snr%s-%s.grd' %(dir_in, filename, stat_num, foc_depth, snr, region), 'wb')
+    f = open('%s/%s-stat%s-foc%s-snr%s-%s.grd' %(dir_in, filename, stat_num, foc_depth, snr, region), 'w')
     mag=[]
 
     for ix in range(nx): # loop through longitude increments
